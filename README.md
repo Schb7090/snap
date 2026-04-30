@@ -1,50 +1,97 @@
-# Welcome to your Expo app 👋
+# Snap Track
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+![CI](https://github.com/Schb7090/snap/actions/workflows/ci.yml/badge.svg)
 
-## Get started
+Hungarian receipt-scanning and expense-management mobile app. Photograph a paper receipt, Gemini Flash 2.0 extracts the data (merchant, date, bruttó/nettó/ÁFA, line items), the app stores and categorizes everything, and exports to CSV/Excel.
 
-1. Install dependencies
+Built for: Hungarian freelancers, small businesses, and cost-conscious individuals.
 
-   ```bash
-   npm install
-   ```
+## Tech stack
 
-2. Start the app
+| Layer | Technology |
+|---|---|
+| Mobile | React Native + Expo SDK 54 (managed workflow) |
+| Language | TypeScript (strict mode + `noUncheckedIndexedAccess`) |
+| Backend | Firebase (Auth + Firestore + Storage, JS SDK) |
+| AI / OCR | Gemini Flash 2.0 (`gemini-2.0-flash`) |
+| State | Zustand |
+| Navigation | Expo Router (file-based) |
+| Styling | NativeWind v4 (Tailwind for RN) |
+| Testing | Jest + React Native Testing Library |
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Getting started
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env.local   # then fill in Firebase + Gemini keys
+npm start                    # press a/i for Android/iOS, or scan QR with Expo Go
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The app runs in **dev mode** without Firebase/Gemini keys — login accepts any credentials, scan creates mock receipts. Add real keys to `.env.local` to wire the backend.
 
-## Learn more
+### Required env vars
 
-To learn more about developing your project with Expo, look at the following resources:
+```
+EXPO_PUBLIC_FIREBASE_API_KEY=
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+EXPO_PUBLIC_FIREBASE_APP_ID=
+EXPO_PUBLIC_GEMINI_API_KEY=
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Scripts
 
-## Join the community
+| Command | What it does |
+|---|---|
+| `npm start` | Expo dev server with QR for Expo Go |
+| `npm run android` | Open in Android emulator |
+| `npm run ios` | Open in iOS simulator (Mac only) |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint via `expo lint` |
+| `npm test` | Jest (114 tests) |
+| `npm run format` | Prettier on all sources |
 
-Join our community of developers creating universal apps.
+## Project structure
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+app/                      Expo Router screens (file-based routing)
+  (auth)/                 Login, register, onboarding
+  (tabs)/                 Dashboard, scan, expenses, settings
+  receipt/[id].tsx        Detail + edit
+  receipt/new.tsx         Manual entry / OCR fallback
+  upgrade.tsx             Tier pricing modal
+  export.tsx              CSV / Excel export modal
+src/
+  components/             UI building blocks (no business logic)
+  services/               External I/O — Firebase, Gemini, exports
+  store/                  Zustand stores
+  hooks/                  Cross-cutting React hooks
+  types/                  Shared TS interfaces
+  utils/                  Pure functions (vat math, currency, dates)
+  constants/              Tier configs, categories
+__tests__/                Mirror of src/ for Jest
+firestore.rules           Server-side validation + security
+.github/workflows/ci.yml  Lint + typecheck + test + bundle
+```
+
+## Hungarian business rules
+
+- VAT rates: 27% (standard), 18% (hospitality), 5% (food/books/medicine)
+- Amounts stored as integer HUF (no decimals) — enforced by branded `Huf` TS type
+- Date format: `YYYY.MM.DD` (Hungarian standard)
+- Currency display: `12 500 Ft`
+
+## Deploying Firebase rules
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase use <your-project-id>
+firebase deploy --only firestore:rules,firestore:indexes,storage
+```
+
+## License
+
+Private — all rights reserved.
