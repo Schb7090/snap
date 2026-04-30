@@ -1,98 +1,94 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { ScrollView, Text, View } from "react-native";
+import { router } from "expo-router";
+import { Screen } from "@src/components/ui/Screen";
+import { Card } from "@src/components/ui/Card";
+import { Button } from "@src/components/ui/Button";
+import { TierBadge } from "@src/components/ui/TierBadge";
+import { UpgradePrompt } from "@src/components/subscription/UpgradePrompt";
+import { ReceiptCard } from "@src/components/receipt/ReceiptCard";
+import { useUserStore } from "@src/store/userStore";
+import { useReceiptStore } from "@src/store/receiptStore";
+import { useReceipts } from "@src/hooks/useReceipts";
+import { remainingScans } from "@src/services/subscriptionService";
+import { formatHuf } from "@src/utils/currency";
+import { huf } from "@src/types/money";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function Dashboard() {
+  useReceipts();
+  const user = useUserStore((s) => s.user);
+  const receiptsThisMonth = useUserStore((s) => s.receiptsThisMonth);
+  const receipts = useReceiptStore((s) => s.receipts);
 
-export default function HomeScreen() {
+  const tier = user?.tier ?? "free";
+  const remaining = remainingScans(tier, receiptsThisMonth);
+  const totalThisMonth = receipts.reduce((sum, r) => sum + r.grossAmount, 0);
+
+  const lowQuotaCount =
+    remaining !== "unlimited" && remaining > 0 && remaining <= 2
+      ? remaining
+      : null;
+  const nextTier = tier === "free" ? "starter" : "pro";
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <Screen>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+        <View className="mb-6 flex-row items-center justify-between">
+          <View>
+            <Text className="text-sm text-gray-500">Üdv,</Text>
+            <Text className="text-2xl font-bold text-gray-900">
+              {user?.displayName ?? "Vendég"}
+            </Text>
+          </View>
+          <TierBadge tier={tier} />
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <Card className="mb-4">
+          <Text className="text-sm text-gray-500">Ebben a hónapban</Text>
+          <Text className="mt-1 text-3xl font-bold text-gray-900">
+            {formatHuf(huf(totalThisMonth))}
+          </Text>
+          <Text className="mt-2 text-xs text-gray-400">
+            {receiptsThisMonth} nyugta beolvasva
+            {remaining !== "unlimited" && ` · ${remaining} maradt`}
+          </Text>
+        </Card>
+
+        <Button className="mb-6" onPress={() => router.push("/(tabs)/scan")}>
+          Új nyugta beolvasása
+        </Button>
+
+        {lowQuotaCount !== null && (
+          <View className="mb-6">
+            <UpgradePrompt
+              reason="low_quota"
+              requiredTier={nextTier}
+              remaining={lowQuotaCount}
+            />
+          </View>
+        )}
+
+        <Text className="mb-3 text-base font-semibold text-gray-900">
+          Legutóbbi nyugták
+        </Text>
+
+        {receipts.length === 0 ? (
+          <Card>
+            <Text className="text-center text-sm text-gray-500">
+              Még nincs beolvasott nyugtád. Kezdd el a Beolvasás fülön!
+            </Text>
+          </Card>
+        ) : (
+          <View className="gap-2">
+            {receipts.slice(0, 5).map((r) => (
+              <ReceiptCard
+                key={r.id}
+                receipt={r}
+                onPress={() => router.push(`/receipt/${r.id}`)}
+              />
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});

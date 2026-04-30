@@ -1,0 +1,65 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function validReceiptShape(d) {
+      return d.grossAmount is int
+          && d.netAmount is int
+          && d.grossAmount >= 0
+          && d.netAmount >= 0
+          && d.grossAmount >= d.netAmount
+          && d.vatAmount is int
+          && d.vatAmount >= 0
+          && d.vatAmount == d.grossAmount - d.netAmount + 0
+          && d.vatRate is number
+          && d.vatRate >= 0
+          && d.vatRate <= 0.5
+          && d.merchant is string
+          && d.merchant.size() > 0
+          && d.merchant.size() <= 200
+          && d.date is string
+          && d.date.matches('[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}')
+          && d.source in ['camera', 'upload'];
+    }
+
+    function validExpenseShape(d) {
+      return d.month is string
+          && d.month.matches('[0-9]{4}-[0-9]{2}')
+          && d.receiptId is string;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+                     && request.resource.data.tier == 'free'
+                     && request.resource.data.deletedAt == null;
+      allow update: if isOwner(userId)
+                     && (request.resource.data.tier == resource.data.tier
+                         || request.auth.token.admin == true);
+      allow delete: if false;
+
+      match /receipts/{receiptId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+                       && validReceiptShape(request.resource.data);
+        allow update: if isOwner(userId)
+                       && validReceiptShape(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /expenses/{expenseId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+                       && validExpenseShape(request.resource.data);
+        allow update: if isOwner(userId)
+                       && validExpenseShape(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
